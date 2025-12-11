@@ -45,4 +45,5 @@ This project would have been considerably more difficult without the work done b
   - Enable/disable MQTT
 - Uses **Home Assistant MQTT Discovery**
 
-<img width="1893" height="942" alt="image" src="https://github.com/user-attachments/assets/854715c0-1d1e-4377-8843-c59026121f3d" />
+<img width="1893" height="942" alt="Screenshot" src="https://github.com/user-attachments/assets/883dc634-e018-405c-955f-554ae397d038" />
+
