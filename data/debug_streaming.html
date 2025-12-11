@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>EcoFlow Debug Stream</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#151924; --panel-2:#10131b;
+      --text:#e7e9ee; --muted:#9aa3b2; --accent:#5dd4ff;
+      --ok:#19c37d; --warn:#f5a524; --err:#ef4146;
+      --radius:14px;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+              "Liberation Mono", "Courier New", monospace;
+    }
+
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#0b0d12, #0f1115 40%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+    }
+
+    header{
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding:18px 18px 10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(11,13,18,0.9), rgba(11,13,18,0.6));
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid #1f2435;
+    }
+
+    .brand{
+      font-size:20px;
+      font-weight:600;
+      letter-spacing:.3px;
+      margin-right: 6px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:var(--panel);
+      border:1px solid #23283a;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      white-space: nowrap;
+    }
+    .pill.up{
+      border-color: rgba(25,195,125,.45);
+      color: #cfeee0;
+      box-shadow: inset 0 0 0 1px rgba(25,195,125,.12);
+    }
+    .pill.down{
+      border-color: rgba(239,65,70,.45);
+      color: #ffd6d7;
+      box-shadow: inset 0 0 0 1px rgba(239,65,70,.12);
+    }
+    .pill.warn{
+      border-color: rgba(245,165,36,.45);
+      color: #ffe7c2;
+      box-shadow: inset 0 0 0 1px rgba(245,165,36,.10);
+    }
+
+    .btn{
+      background:#0b0e16;
+      color:var(--text);
+      border:1px solid #2a3146;
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color:rgba(93,212,255,.5);
+      box-shadow:inset 0 0 0 1px rgba(93,212,255,.25);
+    }
+    .btn:hover{ border-color:#3b4564; }
+    .btn:disabled{
+      opacity:0.45;
+      cursor:not-allowed;
+      border-color:#2a3146;
+      filter:saturate(0.6);
+    }
+
+    .log-wrap{
+      padding: 12px 18px 26px;
+    }
+
+    .log-card{
+      background:linear-gradient(180deg,var(--panel), var(--panel-2));
+      border:1px solid #23283a;
+      border-radius:var(--radius);
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+      overflow: hidden;
+    }
+
+    .log-head{
+      padding: 10px 12px;
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1f2435;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .log-title{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.3px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .subtle{
+      font-size:11px;
+      color:var(--muted);
+    }
+
+    #log{
+      height: calc(100vh - 150px);
+      overflow: auto;
+      padding: 12px;
+      font: 12.5px/1.45 var(--mono);
+      background: rgba(0,0,0,0.10);
+      white-space: pre;
+      color: #dfe5f2;
+    }
+
+    #log::-webkit-scrollbar{ width: 10px; height: 10px; }
+    #log::-webkit-scrollbar-thumb{
+      background: #20263a;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    #log::-webkit-scrollbar-track{
+      background: transparent;
+    }
+
+    #scrollBtn{
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      color: var(--text);
+      border: 1px solid #2a3146;
+      border-radius: 999px;
+      cursor: pointer;
+      padding: 8px 14px;
+      font-size: 11px;
+      letter-spacing: .2px;
+      box-shadow: 0 8px 22px rgba(0,0,0,.35);
+      display: none;
+    }
+    #scrollBtn:hover{
+      border-color: rgba(93,212,255,.45);
+    }
+
+    @media (max-width: 520px){
+      #log{ height: calc(100vh - 170px); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">EcoFlow Bridge</div>
+    <button class="btn" onclick="location.href='/'">Home</button>
+    <button class="btn" id="pauseBtn" onclick="togglePause()">Pause</button>
+    <button class="btn" onclick="clearLog()">Clear</button>
+    <button class="btn primary" onclick="downloadLog()">Download</button>
+    <span id="status" class="pill warn">Connecting…</span>
+  </header>
+
+  <div class="log-wrap">
+    <div class="log-card">
+      <div class="log-head">
+        <div class="log-title">Debug Stream</div>
+        <div class="subtle">WebSocket live tail • buffered client-side</div>
+      </div>
+      <div id="log" aria-label="Debug log output"></div>
+    </div>
+  </div>
+
+  <button id="scrollBtn" onclick="scrollToBottom()">Follow ▼</button>
+
+  <script>
+    const endpoint = '/debug';
+    const logDiv = document.getElementById('log');
+    const statusEl = document.getElementById('status');
+    const scrollBtn = document.getElementById('scrollBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+
+    let ws, reconnects = 0, manualClose = false;
+    let paused = false;
+    let shouldAutoScroll = true;
+
+    const lines = [];
+    const MAX_LINES = 15000;
+
+    logDiv.addEventListener('scroll', () => {
+      const atBottom = logDiv.scrollTop + logDiv.clientHeight >= logDiv.scrollHeight - 2;
+      shouldAutoScroll = atBottom && !paused;
+      scrollBtn.style.display = shouldAutoScroll ? 'none' : 'block';
+    });
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = 'pill ' + (cls || '');
+    }
+
+    function connect() {
+      const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + endpoint;
+      ws = new WebSocket(url);
+      setStatus('Connecting…', 'warn');
+
+      ws.onopen = () => {
+        setStatus('Connected', 'up');
+        reconnects = 0;
+      };
+
+      ws.onmessage = (ev) => {
+        if (paused) return; // drop while paused (keeps ESP load low)
+        const chunk = String(ev.data);
+        if (!chunk) return;
+
+        const newLines = chunk.replace(/\r\n?/g, '\n').split('\n');
+        if (newLines.length && newLines[newLines.length - 1] === '') newLines.pop();
+        if (!newLines.length) return;
+
+        for (let i = 0; i < newLines.length; i++) lines.push(newLines[i]);
+
+        if (lines.length > MAX_LINES) {
+          const drop = lines.length - MAX_LINES;
+          lines.splice(0, drop);
+          logDiv.textContent = lines.join('\n') + '\n';
+        } else {
+          const toAppend = newLines.join('\n') + '\n';
+          logDiv.append(document.createTextNode(toAppend));
+        }
+
+        if (shouldAutoScroll) logDiv.scrollTop = logDiv.scrollHeight;
+      };
+
+      ws.onclose = () => {
+        setStatus('Disconnected', 'down');
+        if (!manualClose) scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        setStatus('Connection error', 'down');
+      };
+    }
+
+    function scheduleReconnect() {
+      const delay = Math.min(30000, 500 * Math.pow(2, reconnects++));
+      setStatus('Reconnecting in ' + delay + 'ms…', 'warn');
+      setTimeout(() => { if (!manualClose) connect(); }, delay);
+    }
+
+    function togglePause(){
+      paused = !paused;
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      if (!paused && shouldAutoScroll) scrollToBottom();
+    }
+
+    function scrollToBottom(){
+      logDiv.scrollTop = logDiv.scrollHeight;
+      shouldAutoScroll = true;
+      scrollBtn.style.display = 'none';
+    }
+
+    function clearLog(){
+      lines.length = 0;
+      logDiv.textContent = '';
+    }
+
+    function downloadLog(){
+      const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'debug.log';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    window.togglePause = togglePause;
+    window.scrollToBottom = scrollToBottom;
+    window.clearLog = clearLog;
+    window.downloadLog = downloadLog;
+
+    connect();
+  </script>
+</body>
+</html>

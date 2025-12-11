@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>EcoFlow Bridge • OTA Update</title>
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#151924; --panel-2:#10131b;
+      --text:#e7e9ee; --muted:#9aa3b2; --accent:#5dd4ff;
+      --ok:#19c37d; --warn:#f5a524; --err:#ef4146;
+      --radius:14px;
+    }
+
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#0b0d12, #0f1115 40%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+    }
+
+    header{
+      padding:18px 18px 6px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+
+    .brand{
+      font-size:20px; font-weight:600; letter-spacing:.3px;
+    }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      background:var(--panel); border:1px solid #23283a;
+      padding:6px 10px; border-radius:999px; font-size:12px;
+      color:var(--muted);
+    }
+
+    main{
+      padding:12px 18px 26px;
+      display:grid; gap:14px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--panel), var(--panel-2));
+      border:1px solid #23283a; border-radius:var(--radius);
+      padding:14px 14px 12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+
+    h3{
+      margin:0 0 10px; font-size:14px; color:var(--muted); font-weight:600;
+    }
+
+    .row{
+      display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    }
+
+    label{
+      font-size:12px; color:var(--muted); display:block; margin-bottom:4px;
+    }
+
+    input, select{
+      background:#0b0e16; color:var(--text);
+      border:1px solid #2a3146; border-radius:10px;
+      padding:8px 10px; font-size:13px; min-width:0;
+    }
+
+    input[type="file"]{
+      width:min(420px, 100%);
+    }
+
+    .btn{
+      background:#0b0e16; color:var(--text);
+      border:1px solid #2a3146; border-radius:10px;
+      padding:8px 10px; font-size:12px; cursor:pointer;
+    }
+    .btn.primary{
+      border-color:rgba(93,212,255,.5);
+      box-shadow:inset 0 0 0 1px rgba(93,212,255,.25);
+    }
+    .btn:hover{border-color:#3b4564}
+
+    .btn:disabled{
+      opacity:0.45;
+      cursor:not-allowed;
+      border-color:#2a3146;
+      filter:saturate(0.6);
+    }
+
+    .subtle{
+      font-size:11px; color:var(--muted);
+    }
+
+    progress{
+      width:100%;
+      height:18px;
+      border-radius:10px;
+      overflow:hidden;
+      background:#0b0e16;
+      border:1px solid #2a3146;
+    }
+    progress::-webkit-progress-bar{
+      background:#0b0e16;
+    }
+    progress::-webkit-progress-value{
+      background: linear-gradient(90deg, rgba(93,212,255,.25), rgba(93,212,255,.85));
+    }
+    progress::-moz-progress-bar{
+      background: linear-gradient(90deg, rgba(93,212,255,.25), rgba(93,212,255,.85));
+    }
+
+    .msg{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+      white-space:pre-wrap;
+      background: rgba(255,255,255,0.02);
+      border:1px solid #23283a;
+      border-radius:10px;
+      padding:10px;
+      min-height: 40px;
+    }
+
+    .msg.ok{ color: #bff7df; border-color: rgba(25,195,125,.35); }
+    .msg.warn{ color: #ffe2a8; border-color: rgba(245,165,36,.35); }
+    .msg.err{ color: #ffb3b6; border-color: rgba(239,65,70,.35); }
+
+    .hr{
+      height:1px; background:#23283a; border:0; margin:12px 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">EcoFlow Bridge</div>
+    <div class="pill">OTA Update</div>
+  </header>
+
+  <main>
+    <div class="card">
+      <h3>OTA firmware upload</h3>
+
+      <form id="f" enctype="multipart/form-data">
+        <div class="row">
+          <div style="flex:1; min-width:220px">
+            <label>Firmware file (.bin or .bin.gz)</label>
+            <input type="file" name="firmware" id="fw" accept=".bin,.bin.gz" required>
+          </div>
+          <div class="row" style="align-self:flex-end">
+            <button class="btn primary" type="submit" id="btn">Upload</button>
+            <button class="btn" type="button" onclick="location.href='/'">Home</button>
+          </div>
+        </div>
+
+        <div class="subtle" style="margin-top:8px">
+          Select the compiled <code>.bin</code> from your build (not the SPIFFS image).
+        </div>
+
+        <hr class="hr"/>
+
+        <progress id="p" max="100" value="0" hidden></progress>
+        <div id="msg" class="msg">Idle</div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Notes</h3>
+      <div class="subtle">
+        The upload is sent to <code>/ota_update</code>. If the device reboots fast after flashing,
+        you may briefly lose connectivity. The UI will re-enable the button after the response
+        (or show an error if the response can’t be read).
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById('f');
+    const file = document.getElementById('fw');
+    const btn  = document.getElementById('btn');
+    const prog = document.getElementById('p');
+    const msg  = document.getElementById('msg');
+
+    function setMsg(text, cls){
+      msg.textContent = text;
+      msg.className = 'msg' + (cls ? ' ' + cls : '');
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!file.files.length) { setMsg('Please choose a file.', 'warn'); return; }
+
+      const fd  = new FormData(form);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/ota_update', true);
+      xhr.responseType = 'text';
+      xhr.timeout = 0;
+
+      btn.disabled = true;
+      prog.value = 0;
+      prog.hidden = true;
+      setMsg('Starting upload…', 'warn');
+
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable) {
+          prog.hidden = false;
+          const v = Math.round(ev.loaded * 100 / ev.total);
+          prog.value = v;
+          setMsg(`Uploading… ${v}%`, 'warn');
+        } else {
+          setMsg('Uploading…', 'warn');
+        }
+      };
+
+      xhr.upload.onload = () => {
+        setMsg('Upload complete. Flashing…', 'warn');
+      };
+
+      xhr.onload = () => {
+        const text = (xhr.responseText || '').trim();
+        if (xhr.status === 200 && /^OK\b/i.test(text)) {
+          setMsg('OTA Update Success\nRebooting…', 'ok');
+          setTimeout(() => location.href='/', 4000);
+        } else {
+          setMsg(text || `HTTP ${xhr.status}`, 'err');
+        }
+        btn.disabled = false;
+      };
+
+      xhr.onerror = () => {
+        setMsg('Upload failed (network error)', 'err');
+        btn.disabled = false;
+      };
+
+      xhr.send(fd);
+    });
+  </script>
+</body>
+</html>

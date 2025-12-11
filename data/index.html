@@ -1,0 +1,818 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EcoFlow PS LFP Bridge</title>
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#151924; --panel-2:#10131b;
+      --text:#e7e9ee; --muted:#9aa3b2; --accent:#5dd4ff;
+      --ok:#19c37d; --warn:#f5a524; --err:#ef4146;
+      --radius:14px;
+
+      --danger-bg: rgba(239,65,70,0.08);
+      --danger-br: rgba(239,65,70,0.45);
+      --danger-glow: rgba(239,65,70,0.18);
+
+      --locked-bg: rgba(239,65,70,0.05);
+      --locked-br: rgba(239,65,70,0.28);
+    }
+    body{
+      margin:0; background:linear-gradient(180deg,#0b0d12, #0f1115 40%);
+      color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+    }
+    header{
+      padding:18px 18px 6px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    .brand{
+      font-size:20px; font-weight:600; letter-spacing:.3px;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      background:var(--panel); border:1px solid #23283a;
+      padding:6px 10px; border-radius:999px; font-size:12px;
+      color:var(--muted);
+    }
+    .dot{width:8px;height:8px;border-radius:50%;}
+    .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.err{background:var(--err)}
+
+    main{padding:12px 18px 26px; display:grid; gap:14px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+    .card{
+      background:linear-gradient(180deg,var(--panel), var(--panel-2));
+      border:1px solid #23283a; border-radius:var(--radius);
+      padding:14px 14px 12px; box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+    h3{margin:0 0 10px; font-size:14px; color:var(--muted); font-weight:600;}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px;}
+    input, select{
+      background:#0b0e16; color:var(--text);
+      border:1px solid #2a3146; border-radius:10px;
+      padding:8px 10px; font-size:13px; min-width:0;
+    }
+    input[type="number"]{width:110px;}
+    .btn{
+      background:#0b0e16; color:var(--text);
+      border:1px solid #2a3146; border-radius:10px;
+      padding:8px 10px; font-size:12px; cursor:pointer;
+    }
+    .btn-toggle{
+      min-width: 42px;         /* wide enough for "OFF" */
+      text-align:center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .btn.primary{border-color:rgba(93,212,255,.5); box-shadow:inset 0 0 0 1px rgba(93,212,255,.25);}
+    .btn:hover{border-color:#3b4564}
+
+    .btn:disabled{
+      opacity:0.45;
+      cursor:not-allowed;
+      border-color:#2a3146;
+      filter:saturate(0.6);
+    }
+
+    /* Core param lock visual hint */
+    .core-locked-note{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-size:11px;
+      color:#ffb3b6;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--locked-br);
+      background: rgba(239,65,70,0.10);
+      margin-left:6px;
+    }
+
+    .kv{display:grid; grid-template-columns: 1fr auto; gap:6px; font-size:13px;}
+    .kv span:last-child{color:var(--accent); font-variant-numeric:tabular-nums;}
+    .subtle{font-size:11px; color:var(--muted);}
+    a.link{color:var(--accent); text-decoration:none; font-size:12px;}
+    a.link:hover{text-decoration:underline;}
+
+    /* --- Toggle chips --- */
+    .toggle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 8px;
+      border:1px solid #2a3146;
+      border-radius:10px;
+      background:#0b0e16;
+      font-size:12px;
+      /* Make the chip responsive */
+      flex: 1 1 230px;
+      max-width:100%;
+      box-sizing:border-box;
+      flex-wrap:wrap;
+    }
+    .toggle-name{
+      min-width:0;           /* allow it to shrink on narrow screens */
+      flex:1 1 auto;         /* take available space but give it up if needed */
+      font-weight:500;
+      word-break:break-word; /* let long labels wrap instead of pushing width */
+    }
+    .toggle .btn{
+      margin-left:auto;   /* push button to the right edge */
+      flex-shrink:0;      /* don’t let the button shrink into unreadable mush */
+    }
+
+
+    .toggle.locked{
+      border-color: var(--locked-br);
+      background: linear-gradient(180deg, var(--locked-bg), rgba(255,255,255,0.01));
+      opacity: 0.78;
+    }
+    .locked-badge{
+      font-size:9px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid var(--locked-br);
+      color:#ffb3b6;
+      background: rgba(239,65,70,0.10);
+      letter-spacing:.3px;
+      text-transform: uppercase;
+    }
+
+    /* --- Danger styling --- */
+    .toggle.danger{
+      border-color: var(--danger-br);
+      background: linear-gradient(180deg, var(--danger-bg), rgba(255,255,255,0.01));
+      box-shadow: 0 0 0 1px rgba(239,65,70,0.08), 0 8px 18px var(--danger-glow);
+    }
+    .danger-dot{
+      color: var(--err);
+      font-weight:700;
+    }
+    .danger-badge{
+      font-size:9px;
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid var(--danger-br);
+      color:#ffb3b6;
+      background: rgba(239,65,70,0.12);
+      letter-spacing:.3px;
+      text-transform: uppercase;
+    }
+
+    /* --- Collapsible --- */
+    .collapsible{
+      border:1px solid #23283a;
+      border-radius:12px;
+      background:rgba(255,255,255,0.02);
+      overflow:hidden;
+      margin-bottom:10px;
+    }
+    .collapsible-header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      padding:10px 10px;
+      cursor:pointer;
+      user-select:none;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+    }
+    .collapsible-title{
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      font-size:12px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;
+      color:var(--muted);
+    }
+    .collapsible-sub{
+      font-size:11px; font-weight:500; text-transform:none; letter-spacing:0;
+      color:var(--muted);
+      opacity:.9;
+    }
+    .chev{
+      width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center;
+      border:1px solid #2a3146; border-radius:6px; font-size:11px; color:var(--muted);
+      background:#0b0e16;
+    }
+    .collapsible-body{
+      padding:10px;
+      display:none;
+    }
+    .collapsible.open .collapsible-body{ display:block; }
+    .collapsible.open .chev{ color:var(--accent); border-color:rgba(93,212,255,.45); }
+
+    .collapsible.danger-group .collapsible-header{
+      border-bottom:1px solid rgba(239,65,70,0.18);
+      background: linear-gradient(180deg, rgba(239,65,70,0.08), rgba(0,0,0,0.06));
+    }
+
+    /* --- Tiny help tooltip --- */
+    .help{
+      position:relative;
+      display:inline-flex; align-items:center; justify-content:center;
+      width:16px; height:16px;
+      border-radius:50%;
+      border:1px solid #2a3146;
+      background:#0b0e16;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:700;
+      line-height:1;
+      cursor:help;
+    }
+    .help::after{
+      content: attr(data-tip);
+      position:absolute;
+      left:50%;
+      bottom:125%;
+      transform: translateX(-50%);
+      white-space:nowrap;
+      background:#0b0e16;
+      border:1px solid #2a3146;
+      color:var(--text);
+      font-size:11px;
+      padding:6px 8px;
+      border-radius:8px;
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .12s ease;
+      box-shadow:0 8px 24px rgba(0,0,0,.35);
+    }
+    .help::before{
+      content:"";
+      position:absolute;
+      left:50%;
+      bottom:118%;
+      transform: translateX(-50%);
+      border:6px solid transparent;
+      border-top-color:#2a3146;
+      opacity:0;
+      transition: opacity .12s ease;
+    }
+    .help:hover::after,
+    .help:hover::before{
+      opacity:1;
+    }
+
+    .spacer-top{ margin-top:8px; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="brand">EcoFlow PS LFP Bridge</div>
+    <div class="pill"><span id="wDot" class="dot warn"></span><span id="wTxt">WiFi…</span></div>
+    <div class="pill"><span id="mDot" class="dot warn"></span><span id="mTxt">MQTT…</span></div>
+    <div class="pill"><span id="cDot" class="dot warn"></span><span id="cTxt">CAN…</span></div>
+    <div class="pill"><span class="subtle" id="fwTxt"></span></div>
+    <div class="pill" id="psPill" style="display:none;">
+      <span class="subtle">Connected to</span>
+      <span id="psSerial"></span>
+    </div>
+    <div class="pill"><span class="subtle" id="ipTxt"></span></div>
+  </header>
+  </header>
+
+  <main>
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <h3 style="margin-bottom:0;">Core parameters</h3>
+        <span id="autoSyncBadge" class="core-locked-note" style="display:none;">
+          Auto Sync ON · core fields locked
+        </span>
+      </div>
+      <div class="subtle" style="margin:6px 0 10px;">
+        When BMS Auto Sync is enabled, Voltage/Temp/Runtimes/Charge limits are read-only. Serial & Charge Voltage remains editable.
+      </div>
+
+      <form id="paramForm" class="row">
+        <div>
+          <label>Voltage (V or mV)</label>
+          <input name="volt" id="volt" placeholder="12.8 or 12800" data-lock="autosync">
+        </div>
+        <div>
+          <label>Charge Voltage (V or mV)</label>
+          <input name="chgvolt" id="chgvolt" placeholder="12.8 or 12800">
+        </div>
+        <div>
+          <label>Temp (°C)</label>
+          <input type="number" name="temp" id="temp" data-lock="autosync">
+        </div>
+        <div>
+          <label>SoC (%)</label>
+          <input type="number" name="soc" id="soc" data-lock="autosync">
+        </div>
+        <div>
+          <label>Discharge min</label>
+          <input type="number" name="runtime" id="disruntime" data-lock="autosync">
+        </div>
+        <div>
+          <label>Charge min</label>
+          <input type="number" name="chgtime" id="chgruntime" data-lock="autosync">
+        </div>
+        <div>
+          <label>BMS Chg Up</label>
+          <input type="number" name="bmschgup" id="bmsChgUp" data-lock="autosync">
+        </div>
+        <div>
+          <label>BMS Chg Dn</label>
+          <input type="number" name="bmschgdn" id="bmsChgDn" data-lock="autosync">
+        </div>
+        <div style="flex:1; min-width:160px">
+          <label>Serial (16 chars)</label>
+          <input name="serial" id="serial" maxlength="16">
+        </div>
+        <div class="row" style="align-self:flex-end">
+          <button class="btn primary" type="submit">Apply</button>
+          <button class="btn" type="button" onclick="refreshAll()">Refresh</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Controls</h3>
+      <div id="toggles"></div>
+      <div class="row spacer-top">
+        <a class="link" href="/log">CAN Log</a>
+        <a class="link" href="/debug">Debug Log</a>
+        <a class="link" href="/bms_readings">BMS Live</a>
+        <a class="link" href="/ota_update">OTA</a>
+        <a class="link" href="/reboot">Reboot</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>BMS snapshot</h3>
+      <div class="kv">
+        <span>SoC</span><span id="bSoc">—</span>
+        <span>Voltage</span><span id="bVolt">—</span>
+        <span>Current</span><span id="bCurr">—</span>
+        <span>Temperature</span><span id="bTemp">—</span>
+        <span>Min cell (mV)</span><span id="bMin">—</span>
+        <span>Max cell (mV)</span><span id="bMax">—</span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" onclick="refreshBms()">Refresh BMS</button>
+        <span class="subtle">Live stream also available in BMS Live page.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>WiFi + MQTT setup</h3>
+      <form id="netForm" class="row">
+        <div style="min-width:160px">
+          <label>WiFi SSID</label>
+          <input name="ssid" id="ssid">
+        </div>
+        <div style="min-width:160px">
+          <label>WiFi Password</label>
+          <input name="pass" id="pass" type="password">
+        </div>
+        <div style="min-width:160px">
+          <label>MQTT Host</label>
+          <input name="mhost" id="mhost" placeholder="192.168.1.10">
+        </div>
+        <div>
+          <label>MQTT Port</label>
+          <input name="mport" id="mport" type="number" value="1883">
+        </div>
+        <div style="min-width:140px">
+          <label>MQTT User</label>
+          <input name="muser" id="muser">
+        </div>
+        <div style="min-width:140px">
+          <label>MQTT Pass</label>
+          <input name="mpass" id="mpass" type="password">
+        </div>
+        <div style="min-width:160px">
+          <label>Base topic</label>
+          <input name="mbase" id="mbase" value="ecoflow_bridge">
+        </div>
+        <div>
+          <label>MQTT enabled</label>
+          <select name="men" id="men">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+        <div class="row" style="align-self:flex-end">
+          <button class="btn primary" type="submit">Save network</button>
+        </div>
+      </form>
+      <div class="subtle">
+        <span id="netStatus"></span>
+        <span id="apHint">
+          When WiFi can’t connect, the device will broadcast an AP named
+          <b>EcoFlowBridge-<span id="devIdAp">XXXX</span></b>.
+        </span>
+      </div>
+    </div>
+  </main>
+    <footer style="text-align:center; padding:10px 0 18px;">
+    <span class="subtle">
+      Project on
+      <a class="link" href="http://github.com/RGarrett93" target="_blank" rel="noopener noreferrer">
+        github.com/RGarrett93
+      </a>
+    </span>
+  </footer>
+</body>
+</html>
+
+<script>
+  // ---------- Toggle definitions (grouped + collapsible) ----------
+  const TOGGLE_GROUPS = [
+    {
+      id: "core",
+      title: "Core controls",
+      sub: "High-level behaviour and comms/logging.",
+      items: [
+        {
+          k: "batteryMaster",
+          label: "Battery Switch",
+          desc: "Master battery on/off.",
+          danger: true
+        },
+        { k: "batt",         label: "BMS Auto Sync", desc: "Auto-update core parameters from BMS values." },
+        { k: "canTxEnabled", label: "CAN TX",        desc: "Enable/disable CAN transmit communications." },
+        { k: "canRxEnabled", label: "CAN RX",        desc: "Enable/disable CAN receive communications." },
+        { k: "txlogging",    label: "TX Logging",    desc: "Enable/disable TX CAN log output." },
+        { k: "rxlogging",    label: "RX Logging",    desc: "Enable/disable RX CAN log output." },
+      ]
+    },
+    {
+      id: "msgs",
+      title: "CAN Messages",
+      sub: "Enable/disable automatic Delta 2 style message stream.",
+      items: [
+        { k: "message3C", label: "Message 3C", desc: "Important Msg for PS " },
+        { k: "message13", label: "Message 13", desc: "Cell + power + temp" },
+        { k: "messageCB", label: "Message CB", desc: "BMS limit ack / control payload." },
+        { k: "message70", label: "Message 70", desc: "Serial + identity payload." },
+        { k: "message0B", label: "Message 0B", desc: "Voltage-related payload." },
+        { k: "message5C", label: "Message 5C", desc: "AC-related status payload." },
+        { k: "message68", label: "Message 68", desc: "Expanded status payload." },
+        { k: "message4F", label: "Message 4F", desc: "Power + runtime payload." },
+        { k: "message8C", label: "Message 8C", desc: "Version/date response payload." },
+        { k: "message24", label: "Message 24", desc: "Serial/version response payload." },
+        { k: "acout5C",   label: "AC Flag (5C)", desc: "AC Out flag within 5C - Unknown." },
+        { k: "flagCB",    label: "CB Flag",     desc: "CB flag - Unknown." },
+      ]
+    },
+    {
+      id: "bms",
+      title: "BMS Controls",
+      sub: "Direct BMS MOSFET control.",
+      dangerGroup: true,
+      items: [
+        { k: "moschg", label: "Charge",    desc: "BMS Charge MOSFET.", danger: true },
+        { k: "mosdis", label: "Discharge", desc: "BMS Discharge MOSFET.", danger: true },
+      ]
+    }
+  ];
+
+  function el(id){ return document.getElementById(id); }
+
+  async function apiGet(path){
+    const r = await fetch(path, {cache:"no-store"});
+    if(!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  // ---------- UI state helpers ----------
+  function groupIsOpen(id){
+    const v = localStorage.getItem("group_open_" + id);
+    if (v === null) {
+      return id === "core";
+    }
+    return v === "1";
+  }
+  function setGroupOpen(id, open){
+    localStorage.setItem("group_open_" + id, open ? "1" : "0");
+  }
+  function isMosfetKey(k){
+    return k === "moschg" || k === "mosdis";
+  }
+
+  // Lock logic when Battery Master is OFF
+  function isLockedByMasterOff(k, masterOn){
+    if (masterOn) return false;
+    // Battery Master itself must remain clickable
+    if (k === "batteryMaster") return false;
+
+    // Requested: lock CAN TX when master is OFF
+    if (k === "canTxEnabled") return true;
+
+    // Existing behaviour: lock MOSFET controls when master is OFF
+    if (isMosfetKey(k)) return true;
+
+    return false;
+  }
+
+  // Apply Core Parameter lock when BMS Auto Sync is ON
+  function applyAutoSyncCoreLock(autoSyncOn){
+    const lockables = document.querySelectorAll('[data-lock="autosync"]');
+    lockables.forEach(inp=>{
+      inp.disabled = !!autoSyncOn;
+      inp.title = autoSyncOn ? "Locked while BMS Auto Sync is ON" : "";
+    });
+
+    // Badge
+    const badge = el("autoSyncBadge");
+    if (badge) badge.style.display = autoSyncOn ? "inline-flex" : "none";
+  }
+
+  // ---------- Refresh all ----------
+  async function refreshAll(){
+    const st = await apiGet("/api/state");
+
+    el("volt").value = st.volt ?? "";
+    el("chgvolt").value = st.chgvolt ?? "";
+    el("temp").value = st.temp ?? "";
+    el("soc").value = st.soc ?? "";
+    el("disruntime").value = st.disruntime ?? "";
+    el("chgruntime").value = st.chgruntime ?? "";
+    el("bmsChgUp").value = st.bmsChgUp ?? "";
+    el("bmsChgDn").value = st.bmsChgDn ?? "";
+    el("serial").value = st.serial ?? "";
+
+    const wOk = st.wifi?.connected;
+    el("wDot").className = "dot " + (wOk ? "ok" : "warn");
+    el("wTxt").textContent = wOk ? ("WiFi") : ("WiFi " + (st.wifi?.mode||"AP"));
+    el("ipTxt").textContent = wOk ? ("IP " + (st.wifi?.ip||"")) : ("AP IP " + (st.wifi?.ap_ip||""));
+    if (el("fwTxt")) {
+      const ver = st.version || "";
+      el("fwTxt").textContent = ver ? ("ESP FW " + ver) : "";
+    }
+
+    if (el("devIdAp") && st.deviceId) {
+      el("devIdAp").textContent = st.deviceId;
+    }
+
+    // Clear any previous network status message
+    if (el("netStatus")) {
+      el("netStatus").textContent = "";
+    }
+
+    const mEn = st.mqtt?.enabled;
+    el("mDot").className = "dot " + (mEn ? "ok" : "warn");
+    el("mTxt").textContent = mEn ? ("MQTT on") : ("MQTT off");
+
+    const canOk = !!st.canHealth;
+    el("cDot").className = "dot " + (canOk ? "ok" : "err");
+    el("cTxt").textContent = canOk ? "CAN healthy" : "CAN no poll";
+
+    const psPill = el("psPill");
+    const psSerial = el("psSerial");
+    const peerSerial = st.peerSerial || "";
+
+    if (psPill && psSerial) {
+      if (canOk && peerSerial !== "") {
+        psPill.style.display = "inline-flex";
+        psSerial.textContent = peerSerial;
+      } else {
+        psPill.style.display = "none";
+        psSerial.textContent = "";
+      }
+    }
+    
+    el("ssid").value  = st.wifi?.ssid ?? "";
+    el("pass").value  = st.wifi?.pass ?? "";
+
+    el("mhost").value = st.mqtt?.host || "";
+    el("mport").value = st.mqtt?.port || 1883;
+    el("muser").value = st.mqtt?.user || "";
+    el("mpass").value = st.mqtt?.pass || "";
+    el("mbase").value = st.mqtt?.base || "ecoflow_bridge";
+    el("men").value   = String(!!mEn);
+
+    const devId = st.deviceId || "";
+    const apNameEl = el("apName");
+    if (apNameEl && devId) {
+      apNameEl.textContent = "EcoFlowBridge-" + devId;
+    }
+
+    // Apply Core Parameter lock when BMS Auto Sync is ON
+    applyAutoSyncCoreLock(!!st.batt);
+
+    renderToggles(st);
+  }
+
+  // ---------- Toggle renderer ----------
+  function renderToggles(st){
+    const wrap = el("toggles");
+    wrap.innerHTML = "";
+
+    // IMPORTANT: master is considered OFF if missing or false.
+    const masterOn = !!st.batteryMaster;
+
+    TOGGLE_GROUPS.forEach(g=>{
+      const box = document.createElement("div");
+      box.className = "collapsible" + (g.dangerGroup ? " danger-group" : "");
+      if (groupIsOpen(g.id)) box.classList.add("open");
+
+      const header = document.createElement("div");
+      header.className = "collapsible-header";
+
+      const left = document.createElement("div");
+      left.className = "collapsible-title";
+      left.innerHTML = `
+        <span>${g.title}</span>
+        ${g.dangerGroup ? `<span class="danger-badge">Caution</span>` : ``}
+        <span class="collapsible-sub">${g.sub || ""}</span>
+      `;
+
+      const chev = document.createElement("span");
+      chev.className = "chev";
+      chev.textContent = box.classList.contains("open") ? "−" : "+";
+
+      header.appendChild(left);
+      header.appendChild(chev);
+
+      header.onclick = ()=>{
+        const open = !box.classList.contains("open");
+        box.classList.toggle("open", open);
+        chev.textContent = open ? "−" : "+";
+        setGroupOpen(g.id, open);
+      };
+
+      const body = document.createElement("div");
+      body.className = "collapsible-body";
+
+      const row = document.createElement("div");
+      row.className = "row";
+
+      g.items.forEach(item=>{
+        const k = item.k;
+        const v = !!st[k];
+        const label = item.label || k;
+
+        const locked = isLockedByMasterOff(k, masterOn);
+
+        const d = document.createElement("div");
+        d.className = "toggle"
+                    + (item.danger ? " danger" : "")
+                    + (locked ? " locked" : "");
+        d.setAttribute("data-k-wrap", k);
+
+        const dot = item.danger
+          ? `<span class="danger-dot">●</span>`
+          : `<span style="color:${v ? '#19c37d' : '#9aa3b2'}">●</span>`;
+
+        const help = item.desc
+          ? `<span class="help" data-tip="${escapeHtml(item.desc)}">?</span>`
+          : ``;
+
+        // Only show "BMS" danger badge when NOT locked
+        const showDangerBadge = item.danger && !locked;
+        const dangerBadge = showDangerBadge ? `<span class="danger-badge">BMS</span>` : ``;
+        const lockedBadge = locked ? `<span class="locked-badge">Locked</span>` : ``;
+
+        const lockTip = "Locked while Battery Master Switch is OFF";
+
+        d.innerHTML = `
+          ${dot}
+          <span class="toggle-name">${label}</span>
+          ${dangerBadge}
+          ${lockedBadge}
+          ${help}
+          <button class="btn btn-toggle"
+                  data-k="${k}"
+                  ${locked ? "disabled" : ""}
+                  ${locked ? `title="${lockTip}"` : ""}>${v ? "ON" : "OFF"}</button>
+        `;
+
+        row.appendChild(d);
+      });
+
+      body.appendChild(row);
+      box.appendChild(header);
+      box.appendChild(body);
+      wrap.appendChild(box);
+    });
+
+    wrap.querySelectorAll("button[data-k]").forEach(b=>{
+      b.onclick = async (ev)=>{
+        ev.stopPropagation();
+        if (b.disabled) return;
+
+        const k = b.getAttribute("data-k");
+
+        await fetch("/api/toggle", {
+          method:"POST",
+          headers: {"Content-Type":"application/x-www-form-urlencoded"},
+          body: "k=" + encodeURIComponent(k)
+        });
+
+        refreshAll();
+      };
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  // ---------- BMS snapshot ----------
+  async function refreshBms(){
+    const b = await apiGet("/api/bms");
+    el("bSoc").textContent = (b.soc ?? "—") + " %";
+    el("bVolt").textContent = (b.voltage ?? "—") + " V";
+    el("bCurr").textContent = (b.current ?? "—") + " A";
+    el("bTemp").textContent = (b.temperature ?? "—") + " °C";
+    el("bMin").textContent = b.min_cell_mv ?? "—";
+    el("bMax").textContent = b.max_cell_mv ?? "—";
+  }
+
+  // ---------- Forms ----------
+  el("paramForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = new URLSearchParams(fd);
+    await fetch("/update_param", {method:"POST", body});
+    refreshAll();
+  });
+
+  el("netForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = new URLSearchParams(fd);
+
+    let statusEl = el("netStatus");
+    if (statusEl) {
+      statusEl.textContent = "Saving…";
+      statusEl.style.color = "#9aa3b2";
+    }
+
+    try {
+      const res = await fetch("/api/net", {
+        method: "POST",
+        body
+      });
+      const data = await res.json();
+
+      if (!statusEl) statusEl = el("netStatus");
+
+      const wifiChanged = !!data.wifi_changed;
+      const staOk       = !!data.sta_ok;
+      const staIp       = data.sta_ip || "";
+
+      if (wifiChanged) {
+        if (staOk) {
+          // Build nice status message including new IP if known
+          let msg = "Connected successfully";
+          if (staIp) msg += " (" + staIp + ")";
+          msg += ", now rebooting…";
+
+          if (statusEl) {
+            statusEl.textContent = msg;
+            statusEl.style.color = "#19c37d";
+          }
+
+          // Where to go after reboot
+          const targetUrl = staIp
+            ? (location.protocol + "//" + staIp)
+            : null;
+
+          // Trigger reboot on the current origin (AP or old STA IP)
+          setTimeout(() => { fetch("/reboot"); }, 800);
+
+          // After some time for reboot+reconnect, jump to the new IP if we know it
+          if (targetUrl) {
+            setTimeout(() => {
+              window.location.href = targetUrl;
+            }, 7000); // ~7s grace for reboot & DHCP
+          }
+        } else {
+          if (statusEl) {
+            statusEl.textContent = "WiFi connection failed (wrong SSID or password?)";
+            statusEl.style.color = "#ef4146";
+          }
+        }
+      } else {
+        // Only MQTT changed
+        if (statusEl) {
+          statusEl.textContent = "MQTT settings saved.";
+          statusEl.style.color = "#9aa3b2";
+        }
+      }
+    } catch (err) {
+      if (statusEl) {
+        statusEl.textContent = "Error saving network settings.";
+        statusEl.style.color = "#ef4146";
+      }
+    }
+    // Refresh UI after a short delay (after connection / error handling)
+    setTimeout(refreshAll, 1500);
+  });
+
+  // ---------- Boot ----------
+  refreshAll();
+  refreshBms();
+  setInterval(refreshBms, 5000);
+</script>
+</body>
+</html>

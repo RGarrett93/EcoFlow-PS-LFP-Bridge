@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BMS Live Readings</title>
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#151924; --panel-2:#10131b;
+      --text:#e7e9ee; --muted:#9aa3b2; --accent:#5dd4ff;
+      --ok:#19c37d; --warn:#f5a524; --err:#ef4146;
+      --radius:14px;
+    }
+
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#0b0d12, #0f1115 40%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+    }
+
+    header{
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding:18px 18px 10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(11,13,18,0.9), rgba(11,13,18,0.6));
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid #1f2435;
+    }
+
+    .brand{
+      font-size:20px;
+      font-weight:600;
+      letter-spacing:.3px;
+      margin-right: 6px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:var(--panel);
+      border:1px solid #23283a;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      white-space: nowrap;
+    }
+
+    .dot{width:8px;height:8px;border-radius:50%;}
+    .dot.ok{background:var(--ok)}
+    .dot.warn{background:var(--warn)}
+    .dot.err{background:var(--err)}
+
+    main{
+      padding:12px 18px 26px;
+      display:grid;
+      gap:14px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--panel), var(--panel-2));
+      border:1px solid #23283a;
+      border-radius:var(--radius);
+      padding:14px 14px 12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
+
+    h3{
+      margin:0 0 10px;
+      font-size:14px;
+      color:var(--muted);
+      font-weight:600;
+    }
+
+    .row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      background:#0b0e16;
+      color:var(--text);
+      border:1px solid #2a3146;
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color:rgba(93,212,255,.5);
+      box-shadow:inset 0 0 0 1px rgba(93,212,255,.25);
+    }
+    .btn:hover{border-color:#3b4564}
+
+    .btn:disabled{
+      opacity:0.45;
+      cursor:not-allowed;
+      border-color:#2a3146;
+      filter:saturate(0.6);
+    }
+
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:6px;
+      font-size:13px;
+    }
+    .kv span:last-child{
+      color:var(--accent);
+      font-variant-numeric:tabular-nums;
+    }
+
+    .subtle{
+      font-size:11px;
+      color:var(--muted);
+    }
+
+    .stale{
+      margin-left:auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">EcoFlow Bridge</div>
+    <button class="btn" onclick="location.href='/'">Home</button>
+    <span class="pill">
+      <span id="dot" class="dot warn"></span>
+      <span id="status">Connecting…</span>
+    </span>
+    <span class="pill subtle" id="stale"></span>
+  </header>
+
+  <main>
+    <div class="card">
+      <h3>Battery BMS Live Readings</h3>
+
+      <div class="kv">
+        <span>SoC</span><span id="socVal">—</span>
+        <span>Voltage</span><span id="voltageVal">—</span>
+        <span>Current</span><span id="currentVal">—</span>
+        <span>Temperature</span><span id="temperatureVal">—</span>
+        <span>Charge runtime</span><span id="chgruntimeVal">—</span>
+        <span>Discharge runtime</span><span id="disruntimeVal">—</span>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <span class="subtle">Last update: <span id="last">—</span></span>
+        <span class="subtle" style="margin-left:auto">WebSocket: <code>/bms</code></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tips</h3>
+      <div class="subtle">
+        This page shows live BMS values pushed over WebSocket.<br/>
+        If you see “Live data paused”, the connection may still be up but no new frames are arriving.
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" onclick="forceReconnect()">Reconnect</button>
+        <button class="btn primary" onclick="clearUi()">Clear UI</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Value fields
+    const socVal         = document.getElementById('socVal');
+    const voltageVal     = document.getElementById('voltageVal');
+    const currentVal     = document.getElementById('currentVal');
+    const temperatureVal = document.getElementById('temperatureVal');
+    const chgruntimeVal  = document.getElementById('chgruntimeVal');
+    const disruntimeVal  = document.getElementById('disruntimeVal');
+
+    // Status UI
+    const statusSpan = document.getElementById('status');
+    const dotEl      = document.getElementById('dot');
+    const staleEl    = document.getElementById('stale');
+    const lastEl     = document.getElementById('last');
+
+    const fmt = (v, d=2) => (Number.isFinite(v) ? Number(v).toFixed(d) : v);
+    const nowStr = () => new Date().toLocaleTimeString();
+
+    let ws;
+    let reconnectMs = 500;           // start backoff at 0.5s
+    const maxReconnectMs = 10000;    // cap at 10s
+    let lastMsgAt = 0;               // ms epoch of last good message
+    let manualClose = false;
+
+    // --- Grace handling for brief WS drops ---
+    const DISCONNECT_GRACE_MS = 1500;   // adjust to taste (1000–2500ms feels good)
+    let disconnectUiTimer = null;
+
+    function clearDisconnectUiTimer(){
+      if (disconnectUiTimer) {
+        clearTimeout(disconnectUiTimer);
+        disconnectUiTimer = null;
+      }
+    }
+
+    function setDot(cls){
+      dotEl.className = 'dot ' + (cls || '');
+    }
+    function setStatus(text, cls){
+      statusSpan.textContent = text;
+      setDot(cls);
+    }
+
+    function connect(){
+      const url = (location.protocol==='https:'?'wss://':'ws://') + location.host + '/bms';
+
+      clearDisconnectUiTimer();
+
+      try { ws && ws.close(); } catch(_) {}
+      manualClose = false;
+
+      ws = new WebSocket(url);
+
+      setStatus('Connecting…', 'warn');
+      staleEl.textContent = '';
+
+      ws.onopen = () => {
+        clearDisconnectUiTimer();
+        setStatus('Connected', 'ok');
+        staleEl.textContent = '';
+        reconnectMs = 500; // reset backoff
+      };
+
+      ws.onerror = () => {
+        // Don't instantly slap "Disconnected" — treat as transient.
+        setStatus('Connection hiccup…', 'warn');
+        try { ws.close(); } catch(_) {}
+      };
+
+      ws.onclose = () => {
+        if (manualClose) return;
+
+        // Delay the scary "Disconnected — retrying…"
+        clearDisconnectUiTimer();
+        disconnectUiTimer = setTimeout(() => {
+          // Only show this if we haven't reconnected in the meantime.
+          setStatus('Disconnected — retrying…', 'err');
+        }, DISCONNECT_GRACE_MS);
+
+        scheduleReconnect();
+      };
+
+      ws.onmessage = (e) => {
+        lastMsgAt = Date.now();
+        lastEl.textContent = nowStr();
+
+        let d;
+        try { d = JSON.parse(e.data); } catch(_){ return; }
+        if (!d || typeof d !== 'object') return;
+
+        if ('soc' in d)         socVal.textContent         = `${d.soc} %`;
+        if ('voltage' in d)     voltageVal.textContent     = `${fmt(d.voltage)} V`;
+        if ('current' in d)     currentVal.textContent     = `${fmt(d.current)} A`;
+        if ('temperature' in d) temperatureVal.textContent = `${d.temperature} °C`;
+        if ('chgruntime' in d)  chgruntimeVal.textContent  = `${d.chgruntime} min`;
+        if ('disruntime' in d)  disruntimeVal.textContent  = `${d.disruntime} min`;
+      };
+    }
+
+    function scheduleReconnect(){
+      const delay = reconnectMs;
+
+      // If the grace timer hasn't fired yet, this keeps UI calm.
+      if (delay >= 250) {
+        setStatus(`Reconnecting…`, 'warn');
+      }
+
+      setTimeout(() => { if (!manualClose) connect(); }, delay);
+      reconnectMs = Math.min(reconnectMs * 2, maxReconnectMs);
+    }
+
+    // Helpers for the buttons
+    function forceReconnect(){
+      manualClose = true;
+      clearDisconnectUiTimer();
+      try { ws && ws.close(); } catch(_) {}
+      manualClose = false;
+      reconnectMs = 500;
+      connect();
+    }
+
+    function clearUi(){
+      socVal.textContent = '—';
+      voltageVal.textContent = '—';
+      currentVal.textContent = '—';
+      temperatureVal.textContent = '—';
+      chgruntimeVal.textContent = '—';
+      disruntimeVal.textContent = '—';
+      lastEl.textContent = '—';
+      staleEl.textContent = '';
+    }
+
+    window.forceReconnect = forceReconnect;
+    window.clearUi = clearUi;
+
+    // Stale data indicator
+    setInterval(() => {
+      const age = Date.now() - lastMsgAt;
+
+      if (!lastMsgAt || age < 2500) {
+        staleEl.textContent = '';
+      } else if (age < 10000) {
+        staleEl.textContent = `Live data paused (${Math.floor(age/1000)}s old)`;
+      } else {
+        staleEl.textContent = `No data (${Math.floor(age/1000)}s old)`;
+      }
+    }, 500);
+
+    // Kick it off
+    connect();
+  </script>
+</body>
+</html>
