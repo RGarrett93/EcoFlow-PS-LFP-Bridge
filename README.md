@@ -42,6 +42,10 @@ This project would have been considerably more difficult without the work done b
 ## Web UI
 <img width="1893" height="942" alt="Screenshot" src="https://github.com/user-attachments/assets/883dc634-e018-405c-955f-554ae397d038" />
 
+## CAN Messages - Delta 2
+
+<img width="938" height="1844" alt="Screenshot_20251212_191706_Samsung Internet(1)" src="https://github.com/user-attachments/assets/9d7ab911-785e-4ebb-bae3-04792293ec46" />
+
 ## MQTT & Home Assistant
 
 - Configurable MQTT:
