@@ -59,4 +59,7 @@ This project would have been considerably more difficult without the work done b
 * 5&6  -    4      Battery Enable
 * N/A  -    3      (Not Connected)
 
+<img width="544" height="215" alt="LilyGo Wiring" src="https://github.com/user-attachments/assets/51085fdf-5517-41a7-a293-b5a3505d484e" />
+
+
 <img width="667" height="337" alt="Powerstream wiring" src="https://github.com/user-attachments/assets/744ec501-6cf7-4889-a36a-8e9d347f2773" />
