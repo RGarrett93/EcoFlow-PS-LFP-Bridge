@@ -35,8 +35,12 @@ This project would have been considerably more difficult without the work done b
   - If connect fails or none saved → starts AP:
     - SSID: `EcoFlowBridge-XXXX` (XXXX = last 4 hex characters of MAC/deviceId)
     - AP IP: `192.168.4.1`
+    - Password: ecoflow123
 - Web UI available on AP IP or WiFi IP
 - WiFi configuration stored
+
+## Web UI
+<img width="1893" height="942" alt="Screenshot" src="https://github.com/user-attachments/assets/883dc634-e018-405c-955f-554ae397d038" />
 
 ## MQTT & Home Assistant
 
@@ -45,5 +49,14 @@ This project would have been considerably more difficult without the work done b
   - Enable/disable MQTT
 - Uses **Home Assistant MQTT Discovery**
 
-<img width="1893" height="942" alt="Screenshot" src="https://github.com/user-attachments/assets/883dc634-e018-405c-955f-554ae397d038" />
+## Wiring
 
+* **PS**   -   **XT150**
+* 1    -    5	     Wakeup?
+* 2    -    6      Wakeup?
+* 3    -    1      CAN +
+* 4    -    2      CAN -
+* 5&6  -    4      Battery Enable
+* N/A  -    3      (Not Connected)
+
+<img width="667" height="337" alt="Powerstream wiring" src="https://github.com/user-attachments/assets/744ec501-6cf7-4889-a36a-8e9d347f2773" />
