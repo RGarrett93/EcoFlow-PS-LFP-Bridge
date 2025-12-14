@@ -3,7 +3,7 @@
 
 #include <math.h>
 
-// Internal 3s timer (mirrors old main.cpp behaviour)
+// Internal 3s timer
 static unsigned long bmsTimer = 0;
 #define RS485_BAUD 9600
 
@@ -35,12 +35,11 @@ float inputWatt = 0;
 float outputWatt = 0;
 
 
-// Direction control (unchanged behaviour)
+// Direction control
 static void setRS485Transmit(bool enable) {
   digitalWrite(RS485_CALLBACK, enable ? LOW : HIGH); // LOW=Transmit, HIGH=Receive
 }
 
-// Keep the same Serial1 alias you were using
 HardwareSerial& bmsSerial = Serial1;
 OverkillSolarBms2 bms = OverkillSolarBms2();
 
@@ -52,14 +51,12 @@ static void postTransmission() {
 }
 
 void bmsInit() {
-  // Ensure pins are configured as before
   pinMode(RS485_CALLBACK, OUTPUT);
   pinMode(RS485_EN, OUTPUT);
 
   digitalWrite(RS485_EN, HIGH);
   setRS485Transmit(false);
-
-  // Same begin() as your current setup
+  
   bmsSerial.begin(RS485_BAUD, SERIAL_8N1, RS485_RX, RS485_TX);
 
   // Same library wiring
@@ -249,8 +246,6 @@ void bmsLoopTick() {
     config.temp = bms.get_ntc_temperature(0); // Assuming first NTC is the main temperature sensor
     config.chgruntime = charge_runtime_minutes;
     config.disruntime = runtime_minutes;
-  } else {
-    // intentionally unchanged: your original code left these commented out
   }
 }
 
