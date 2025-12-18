@@ -46,7 +46,10 @@ void startAP() {
   }
 
   apMode = true;
-  apHold = true;  // <-- sticky AP until user provides new creds
+  // Only make AP "sticky" if we have *no* saved WiFi credentials.
+  // If we *do* have SSID saved, AP is just a temporary fallback
+  // and we want to keep retrying STA when WiFi comes back.
+  apHold = net.wifiSsid.isEmpty();
 
   String apSsid = "EcoFlowBridge-" + deviceId();
   String apPass = "ecoflow123";
@@ -94,14 +97,25 @@ bool startSTA(uint32_t timeoutMs) {
 void ensureWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     wifiLastOkMs = millis();
+
+    // If we're in AP+STA, drop AP now that STA is healthy again.
+    wifi_mode_t m = WiFi.getMode();
+    if (m == WIFI_MODE_APSTA) { 
+      Serial.println("WiFi STA healthy again → disabling AP");
+      WiFi.softAPdisconnect(true);
+      WiFi.mode(WIFI_STA);
+      apMode = false;
+    }
+
     apHold = false;  // STA recovered
     return;
   }
 
+
   uint32_t now = millis();
 
   // If AP is sticky, don't try switching to STA
-  if (apMode && apHold) {
+  if (apMode && apHold && net.wifiSsid.isEmpty()) {
     return;
   }
 
